@@ -1,0 +1,2384 @@
+openapi: 3.0.0
+info:
+  description: |-
+    PPG is the Proxy Payment Gateway of Jibit corporation.
+    It lets the users of 3rd-party clients (merchants, banks, organizations, ...) to purchase goodies from them using PPG as a transparent payment gateway.
+    In back-end the user will be redirected to a PSP payment gateway (for example Saman) to pay the price of the purchase.
+
+    Using APIs of this application a client can create and initiate the purchase orders and can track the state of these purchases.
+
+    Using *Swagger Editor* you could directly call the PPG APIs and also could auto-generate a client for PPG APIs in your preferred programming language.
+
+    The base URL of PPG is: `https://napi.jibit.ir/ppg`
+
+    Full documentation is available on: https://napi.jibit.ir/ppg/v3/static/docs/index.html
+  title: "PPG: Proxy Payment Gateway"
+  version: 3.2.48
+servers:
+- url: https://napi.jibit.ir/ppg
+security:
+- bearerAuth: []
+tags:
+- description: Provides APIs to check the health status of the service.
+  name: App API
+  x-order: 0
+- description: Provides the Client-related APIs.
+  name: Client API
+  x-order: 0
+- description: Provides APIs to manage purchase-related APIs.
+  name: Purchase API
+  x-order: 0
+- description: Provides APIs to manage refund-related APIs.
+  name: Refund API
+  x-order: 0
+- description: Provides APIs to manage settlement-related APIs.
+  name: Settlement API
+  x-order: 0
+- description: Provides APIs to manage terminal-related APIs.
+  name: Terminal API
+  x-order: 0
+- description: Provides APIs to manage tokens of the client. These APIs are permitted
+    to be called without the authorization token.
+  name: Token API
+  x-order: 0
+paths:
+  /v3/tokens:
+    post:
+      description: "Generates a pair of access/refresh tokens by using API/secret\
+        \ keys.\n\n <p>\n **Possible Error Codes:**\n <p>\n * `security.bad_credentials`:\
+        \ When provided api/secret keys are not valid.\n * `client.not_active`: When\
+        \ the client is not active.\n * `apiKey.is_required`: When api key is not\
+        \ provided.\n * `secretKey.is_required`: When secret Key is not provided.\n\
+        \ * `web.invalid_or_missing_body`: When the request body is not a valid JSON.\
+        \ \n * `server.error`: Internal server error. Please tell us the value of\
+        \ fingerprint to be able to track the exact problem internally.\n <p>\n `Authorization`\
+        \ header parameter is NOT required."
+      operationId: generateToken
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GenerateTokenRequest"
+        required: true
+      responses:
+        "200":
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/TokenDto"
+          description: The generated pair of access/refresh tokens.
+      summary: Generate Token
+      tags:
+      - Token API
+  /v3/tokens/refresh:
+    post:
+      description: "Refreshes the access/refresh tokens by using previously generated\
+        \ refresh token.\n <p>\n **Possible Error Codes:**\n <p>\n * `security.bad_credentials`:\
+        \ When provided refresh token is not valid.\n * `client.not_active`: When\
+        \ the client is not active.\n * `refreshToken.is_required`: When refresh token\
+        \ is not provided.\n * `web.invalid_or_missing_body`: When the request body\
+        \ is not a valid JSON. \n * `server.error`: Internal server error. Please\
+        \ tell us the value of fingerprint to be able to track the exact problem internally.\n\
+        \ <p>\n `Authorization` header parameter is NOT required."
+      operationId: refreshToken
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RefreshTokenRequest"
+        required: true
+      responses:
+        "200":
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/TokenDto"
+          description: The generated pair of access/refresh tokens.
+      summary: Refresh Token
+      tags:
+      - Token API
+  /v3/purchases:
+    get:
+      description: "Filters the purchases with provided criteria and page request.\n\
+        \ All criteria parameter values should be URL-Encoded.\n **Possible Error\
+        \ Codes:**\n <p>\n * `too_many_requests`: Only one request is allowed at a\
+        \ time to filter purchases.\n * `page_number.max_exceeded`: The page number\
+        \ is exceeded its allowed value.\n * `page_size.max_exceeded`: The page size\
+        \ is exceeded its allowed size.\n * `client.not_active`: When the client is\
+        \ not active.\n * `ip.not_trusted`: When the client IP is not trusted. \n\
+        \ * `security.auth_required`: The bearer JWT token is not present in request\
+        \ header as the `Authorization` parameter.\n \n * `token.verification_failed`:\
+        \ The access token is invalid or expired. \n * `server.error`: Internal server\
+        \ error. Please tell us the value of fingerprint to be able to track the exact\
+        \ problem internally.\n <p>\n **Authorization**: Bearer JWT token in header. "
+      operationId: filterPurchases
+      parameters:
+      - description: Encapsulates the information to filter purchases.
+        explode: true
+        in: query
+        name: criteria
+        required: true
+        schema:
+          $ref: "#/components/schemas/PurchaseFilterCriteria"
+        style: form
+      responses:
+        "200":
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/PaginatedDetailedPurchaseDto"
+          description: The list of paginated purchases.
+      summary: Filter Purchases
+      tags:
+      - Purchase API
+    post:
+      description: "Creates a purchase request.\n <p>\n After creating the purchase,\
+        \ the client must redirect its user to the provided URL (`pspSwitchingUrl`).\n\
+        \ <p>\n Once the purchase is initialized, the user will be redirected to a\
+        \ PSP payment gateway. See also \n <p>\n Note 1: After the user completes\
+        \ the payment on the PSP page, the client should verify the purchase.\n <p>\n\
+        \ Note 2: If the purchase is not verified (completed) within 15 minutes of\
+        \ creation, it will expire.\n <p>\n **Possible Error Codes: **\n <p>\n * `client.not_active`:\
+        \ When the client is inactive.\n * `amount.is_required`: When the amount is\
+        \ empty.\n * `amount.not_enough`: When the amount is invalid. The minimum\
+        \ amount is 5000 Rials.\n * `wage.is_invalid`: When the wage is invalid. Its\
+        \ minimum value is 0.\n * `fee_as_wage.wage_must_be_zero`: When the *Setting\
+        \ the Fee as Wage* feature is enabled for the client, and the `wage` parameter\
+        \ has non-zero value.\n * `amount_plus_wage.permitted_value_exceeded`: When\
+        \ amount plus wage exceeds the maximum permitted value for your client. The\
+        \ default max amount is 2_000_000_000 IRR.\n * `wage.must_be_less_than_fifteen_percent_of_purchase_amount`:\
+        \ when wage exceeds 15% of the purchase amount.\n * `currency.is_required`:\
+        \ When the currency is empty.\n * `callbackUrl.is_required`: When callbackUrl\
+        \ is empty.\n * `callbackUrl.is_invalid`: When callbackUrl is invalid.\n *\
+        \ `callbackUrl.max_length`: When callbackUrl exceeds its allowed length. Its\
+        \ maximum length is 1024 characters.\n * `callbackUrl.domain_not_in_whitelist`:\
+        \ Domain of callback URL is not in whitelist.\n * `clientReferenceNumber.is_required`:\
+        \ When clientReferenceNumber is empty.\n * `clientReferenceNumber.duplicated`:\
+        \ When clientReferenceNumber for the client is not unique.\n * `payerCardNumber.is_invalid`:\
+        \ When payerCardNumber is invalid.\n * `payerNationalCode.is_invalid`: When\
+        \ payerNationalCode is invalid.\n * `userIdentifier.max_length`: When userIdentifier\
+        \ exceeds its allowed length. Its maximum length is 50 characters.\n * `payerMobileNumber.is_invalid`:\
+        \ When payerMobileNumber is invalid.\n * `payerMobileNumber.in_blacklist`:\
+        \ When the payer mobile number is in the blacklist.\n * `payerMobileNumber.must_be_provided_to_check_with_card_number`:\
+        \ When the client has set `checkPayerMobileNumber` to true, but the payerMobileNumber\
+        \ is not provided.\n * `payerCardNumber_and_payerCardNumbers.just_one_of_them_is_permitted`:\
+        \ Just one of these parameters is permitted: `payerCardNumber`, `payerCardNumbers`\n\
+        \ * `description.max_length`: When the description exceeds its allowed length.\
+        \ Its maximum length is 256 characters.\n * `switching.terminalIds.is_required`:\
+        \ When no terminal IDs are provided for terminal switching.\n * `ip.not_trusted`:\
+        \ When the client IP is not trusted. \n * `security.auth_required`: The bearer\
+        \ JWT token is not in the request header as the `Authorization` parameter.\
+        \ \n * `token.verification_failed`: The access token is invalid or expired.\
+        \ \n * `web.invalid_or_missing_body`: When the request body is not a valid\
+        \ JSON. \n * `server.error`: Internal server error. Please provide the value\
+        \ of the fingerprint to help us track the exact problem internally.\n <p>\n\
+        \ **Authorization**: Bearer JWT token in the header. "
+      operationId: createPurchase
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreatePurchaseRequest"
+        required: true
+      responses:
+        "200":
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/CreatePurchaseResult"
+          description: Encapsulates the details of the created purchase including
+            the PSP switching URL.
+      summary: Create Purchase
+      tags:
+      - Purchase API
+  /v3/purchases/{purchaseId}/verify:
+    post:
+      description: "Verifies a purchase by the client.\n The client should call this\
+        \ API after we redirect the user to the client's callback URL.\n <p>\n Only\
+        \ purchases with the state `READY_TO_VERIFY` can be verified.\n <p>\n If the\
+        \ client does not call this API, the PSP will automatically reverse the payment\
+        \ after a certain period of time, and the purchase state will be set to `EXPIRED`.\n\
+        \ <p>\n Note 1: This API does not have a request body and can be called using\
+        \ both `GET` and `POST` methods.\n <p>\n Note 2: For using Auto-verify feature\
+        \ consult our admins. Note that using this feature does not guaranty that\
+        \ purchase will be verified 100%,\n but it can decrease the number of `EXPIRED`\
+        \ purchases due to not verified by client significantly.\n So a client still\
+        \ must call the verification API with this feature enabled, but in most cases\
+        \ the API will return `payment.already_verified` error.\n <p>\n **Possible\
+        \ Error Codes:**\n <p>\n * `ip.not_trusted`: When the client IP is not trusted.\
+        \ \n * `client.not_active`: When the client is inactive.\n * `purchase.not_found`:\
+        \ When the purchase does not found.\n * `payment.already_verified`: When the\
+        \ purchase is already verified.\n * `purchase.invalid_state`: When the purchase's\
+        \ state is invalid.\n * `purchase.already_reversed`: When the purchase is\
+        \ already reversed.\n * `security.auth_required`: The bearer JWT token is\
+        \ not in the request header as the `Authorization` parameter.\n \n * `token.verification_failed`:\
+        \ When the access token is invalid or expired. \n * `server.error`: Internal\
+        \ server error. Please provide the value of the fingerprint to help us track\
+        \ the exact problem internally.\n <p>\n **Authorization**: Bearer JWT token\
+        \ in the header. "
+      operationId: verifyPurchase
+      parameters:
+      - explode: false
+        in: path
+        name: purchaseId
+        required: true
+        schema:
+          format: int64
+          type: integer
+        style: simple
+      responses:
+        "200":
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/VerifyPurchaseResult"
+          description: |-
+            Encapsulates the purchase verification result.
+             It indicates whether the purchase verification was successful, failed, already verified, unknown.
+      summary: Verify Purchase
+      tags:
+      - Purchase API
+  /v3/purchases/reverse:
+    post:
+      description: "Reverse a purchase. <br>\n <b>\n **This feature is not enabled\
+        \ by default and should be enabled by admin manually.**\n </b>\n <p>\n **Possible\
+        \ Error Codes:**\n <p>\n * `reverse.is_not_enabled`: When this feature is\
+        \ not enabled for the client.\n * `purchase.not_found`: When the purchase\
+        \ is not found.\n * `reverse.not_supported`: When the refund is not supported\
+        \ for this type of purchase.\n * `purchase.invalid_state`: When the purchase\
+        \ is not in valid (FINISHED) state.\n * `clientReferenceNumber_or_purchaseId.are_required`:\
+        \ When clientReferenceNumber and purchaseId are not provided.\n * `purchase.not_reversible`:\
+        \ When the purchase is not reversible because of internal verification procedures.\n\
+        \ * `purchase.refunded`: When the refund API has called for this purchase;\
+        \ so you can't reverse it.\n * `purchase.already_reversed`: When the purchase\
+        \ is already reversed.\n * `ip.not_trusted`: When the client IP is not trusted.\
+        \ \n * `security.auth_required`: The bearer JWT token is not present in request\
+        \ header as the `Authorization` parameter.\n \n * `token.verification_failed`:\
+        \ The access token is invalid or expired. \n * `web.invalid_or_missing_body`:\
+        \ When the request body is not a valid JSON. \n * `server.error`: Internal\
+        \ server error. Please tell us the value of fingerprint to be able to track\
+        \ the exact problem internally.\n <p>\n **Authorization**: Bearer JWT token\
+        \ in header. "
+      operationId: reversePurchase
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReversePurchaseRequest"
+        required: true
+      responses:
+        "200":
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ReversePurchaseResult"
+          description: |-
+            Encapsulates the purchase reverse result.
+             It indicates whether the purchase reverse was successful, failed, already reversed or unknown.
+      summary: Reverse Purchase
+      tags:
+      - Purchase API
+  /v3/purchases/refunds/{refundId}/verify:
+    post:
+      description: "Verifies a refund. If the verifying refund option is enabled,\
+        \ the client should verify its refund to start actual refunding.\n <p>\n **Possible\
+        \ Error Codes:**\n <p>\n * `transfer.not_found`: When the refundId is not\
+        \ found.\n * `purchase.not_found`: When the purchase is not found.\n * `verify.failed`:\
+        \ There is an internal issue while verifying. Please try again.\n * `verify.not_applicable`:\
+        \ The refund is already verified, and it can't be verified again.\n * `ip.not_trusted`:\
+        \ When the client IP is not trusted. \n * `security.auth_required`: The bearer\
+        \ JWT token is not present in request header as the `Authorization` parameter.\n\
+        \ \n * `token.verification_failed`: The access token is invalid or expired.\
+        \ \n * `server.error`: Internal server error. Please tell us the value of\
+        \ fingerprint to be able to track the exact problem internally.\n <p>\n **Authorization**:\
+        \ Bearer JWT token in header. "
+      operationId: verifyRefund
+      parameters:
+      - explode: false
+        in: path
+        name: refundId
+        required: true
+        schema:
+          format: int64
+          type: integer
+        style: simple
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RefundActionRequest"
+      responses:
+        "204":
+          description: No Content
+      summary: Verify Refund
+      tags:
+      - Refund API
+  /v3/purchases/refunds/{refundId}/retry:
+    post:
+      description: "Retries a failed refund.\n <p>\n **Possible Error Codes:**\n <p>\n\
+        \ * `transfer.not_found`: When the refundId is not found.\n * `retry.failed`:\
+        \ When the retry process failed.\n * `retry.not_applicable`: When retry request\
+        \ could not be applied.\n * `ip.not_trusted`: When the client IP is not trusted.\
+        \ \n * `security.auth_required`: The bearer JWT token is not present in request\
+        \ header as the `Authorization` parameter.\n \n * `token.verification_failed`:\
+        \ The access token is invalid or expired. \n * `web.invalid_or_missing_body`:\
+        \ When the request body is not a valid JSON. \n * `server.error`: Internal\
+        \ server error. Please tell us the value of fingerprint to be able to track\
+        \ the exact problem internally.\n <p>\n **Authorization**: Bearer JWT token\
+        \ in header. "
+      operationId: retryRefund
+      parameters:
+      - explode: false
+        in: path
+        name: refundId
+        required: true
+        schema:
+          format: int64
+          type: integer
+        style: simple
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RefundActionRequest"
+      responses:
+        "200":
+          description: OK
+      summary: Retry Refund
+      tags:
+      - Refund API
+  /v3/purchases/refunds/{refundId}/ignore-cancellable:
+    post:
+      description: "Ignores a cancelling refund.\n <p>\n **Possible Error Codes:**\n\
+        \ <p>\n * `transfer.not_found`: When the refundId is not found.\n * `ip.not_trusted`:\
+        \ When the client IP is not trusted. \n * `security.auth_required`: The bearer\
+        \ JWT token is not present in request header as the `Authorization` parameter.\n\
+        \ \n * `token.verification_failed`: The access token is invalid or expired.\
+        \ \n * `web.invalid_or_missing_body`: When the request body is not a valid\
+        \ JSON. \n * `server.error`: Internal server error. Please tell us the value\
+        \ of fingerprint to be able to track the exact problem internally.\n <p>\n\
+        \ **Authorization**: Bearer JWT token in header. "
+      operationId: ignoreCancellingRefund
+      parameters:
+      - explode: false
+        in: path
+        name: refundId
+        required: true
+        schema:
+          format: int64
+          type: integer
+        style: simple
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RefundActionRequest"
+      responses:
+        "200":
+          description: OK
+      summary: Ignore Cancelling Refund
+      tags:
+      - Refund API
+  /v3/purchases/refunds/{refundId}/cancel:
+    post:
+      description: "Cancels a cancelling refund.\n <p>\n **Possible Error Codes:**\n\
+        \ <p>\n * `transfer.not_found`: When the refundId is not found.\n * `cancellation.failed`:\
+        \ When the cancellation process failed.\n * `cancellation.not_applicable`:\
+        \ When cancel request could not be applied.\n * `ip.not_trusted`: When the\
+        \ client IP is not trusted. \n * `security.auth_required`: The bearer JWT\
+        \ token is not present in request header as the `Authorization` parameter.\n\
+        \ \n * `token.verification_failed`: The access token is invalid or expired.\
+        \ \n * `web.invalid_or_missing_body`: When the request body is not a valid\
+        \ JSON. \n * `server.error`: Internal server error. Please tell us the value\
+        \ of fingerprint to be able to track the exact problem internally.\n <p>\n\
+        \ **Authorization**: Bearer JWT token in header. "
+      operationId: cancelRefund
+      parameters:
+      - explode: false
+        in: path
+        name: refundId
+        required: true
+        schema:
+          format: int64
+          type: integer
+        style: simple
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RefundActionRequest"
+      responses:
+        "200":
+          description: OK
+      summary: Cancel Refund
+      tags:
+      - Refund API
+  /v3/purchases/refund:
+    post:
+      description: "Refunds a purchase.\n <p>\n **Possible Error Codes:**\n <p>\n\
+        \ * `clientReferenceNumber_or_purchaseId.are_required`: When clientReferenceNumber\
+        \ and purchaseId are not provided.\n * `purchase.not_found`: When the purchase\
+        \ is not found.\n * `purchase.invalid_state`: When the purchase is not in\
+        \ valid (SUCCESS) state.\n * `refund.not_supported`: When the refund is not\
+        \ supported for this type of purchase or refund is not active for the client.\n\
+        \ * `batchID.invalid_length`\n * `submissionMode.not_valid`\n * `transfers.invalid_length`\n\
+        \ * `transfers.0.transferID.invalid_length`\n * `transfers.0.destination.not_valid`\n\
+        \ * `transfers.0.source_bank.not_supported`\n * `transfers.0.destinationFirstName.invalid_length`\n\
+        \ * `transfers.0.destinationLastName.invalid_length`\n * `transfers.0.amount.not_enough_for_ach`\n\
+        \ * `transfers.0.amount.exceeded_maximum_for_ach`\n * `transfers.0.amount.not_enough_for_normal`\n\
+        \ * `transfers.0.amount.exceeded_maximum_for_normal`\n * `transfers.0.currency.not_valid`\n\
+        \ * `transfers.0.description.invalid_length`\n * `transfers.0.metadata.invalid_length`\n\
+        \ * `transfers.0.notifyURL.invalid_length`\n * `transfers.0.notifyURL.not_valid`\n\
+        \ * `transfers.0.paymentID.invalid_length`\n * `transfers.0.paymentID.not_valid`\n\
+        \ * `payment_id.not_enabled`\n * `balances.not_enough`\n * `daily_limitation.reached`\n\
+        \ * `transfer.already_exists`\n * `ip.not_trusted`: When the client IP is\
+        \ not trusted. \n * `security.auth_required`: The bearer JWT token is not\
+        \ present in request header as the `Authorization` parameter.\n \n * `token.verification_failed`:\
+        \ The access token is invalid or expired. \n * `web.invalid_or_missing_body`:\
+        \ When the request body is not a valid JSON. \n * `server.error`: Internal\
+        \ server error. Please tell us the value of fingerprint to be able to track\
+        \ the exact problem internally.\n <p>\n **Authorization**: Bearer JWT token\
+        \ in header. "
+      operationId: refundPurchase
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RefundPurchaseRequest"
+        required: true
+      responses:
+        "200":
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/RefundPurchaseResult"
+          description: Encapsulates the response information of purchase refund from
+            transferor.
+      summary: Refund Purchase
+      tags:
+      - Refund API
+  /v3/terminals/list:
+    get:
+      description: "Lists all active terminals of the client and it's subordinates.\n\
+        \ <p>\n **Possible Error Codes: **\n <p>\n * `client.not_active`: When the\
+        \ client is inactive.\n * `ip.not_trusted`: When the client IP is not trusted.\
+        \ \n * `security.auth_required`: The bearer JWT token is not in the request\
+        \ header as the `Authorization` parameter. \n * `token.verification_failed`:\
+        \ The access token is invalid or expired. \n * `web.invalid_or_missing_body`:\
+        \ When the request body is not a valid JSON. \n * `server.error`: Internal\
+        \ server error. Please provide the value of the fingerprint to help us track\
+        \ the exact problem internally.\n <p>\n **Authorization**: Bearer JWT token\
+        \ in the header. "
+      operationId: listActiveTerminals
+      responses:
+        "200":
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/CollectionResponseTerminalDto"
+          description: A wrapper for the collection responses.
+      summary: List Active Terminals
+      tags:
+      - Terminal API
+  /v3/settlements:
+    get:
+      description: "Filters the settlements with provided criteria and page request.\n\
+        \ All criteria parameter values should be URL-Encoded.\n **Possible Error\
+        \ Codes:**\n <p>\n * `page_number.max_exceeded`: The page number is exceeded\
+        \ its allowed value.\n * `page_size.max_exceeded`: The page size is exceeded\
+        \ its allowed size.\n * `client.not_active`: When the client is not active.\n\
+        \ * `ip.not_trusted`: When the client IP is not trusted. \n * `security.auth_required`:\
+        \ The bearer JWT token is not present in request header as the `Authorization`\
+        \ parameter.\n \n * `token.verification_failed`: The access token is invalid\
+        \ or expired. \n * `server.error`: Internal server error. Please tell us the\
+        \ value of fingerprint to be able to track the exact problem internally.\n\
+        \ <p>\n **Authorization**: Bearer JWT token in header. "
+      operationId: filterSettlements
+      parameters:
+      - description: Encapsulates the information to filter settlements.
+        explode: true
+        in: query
+        name: criteria
+        required: true
+        schema:
+          $ref: "#/components/schemas/SettlementFilterCriteria"
+        style: form
+      responses:
+        "200":
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/PaginatedDetailedSettlementDto"
+          description: The list of paginated settlements.
+      summary: Filter Settlements
+      tags:
+      - Settlement API
+  /v3/purchases/refunds/{refundId}:
+    get:
+      description: "Inquiries a Refund.\n refundId is purchaseId.\n <p>\n **Possible\
+        \ Error Codes:**\n <p>\n * `transfer.not_found`: When the refundId is not\
+        \ found.\n * `ip.not_trusted`: When the client IP is not trusted. \n * `security.auth_required`:\
+        \ The bearer JWT token is not present in request header as the `Authorization`\
+        \ parameter.\n \n * `token.verification_failed`: The access token is invalid\
+        \ or expired. \n * `web.invalid_or_missing_body`: When the request body is\
+        \ not a valid JSON. \n * `server.error`: Internal server error. Please tell\
+        \ us the value of fingerprint to be able to track the exact problem internally.\n\
+        \ <p>\n **Authorization**: Bearer JWT token in header. "
+      operationId: inquiryRefund
+      parameters:
+      - explode: false
+        in: path
+        name: refundId
+        required: true
+        schema:
+          format: int64
+          type: integer
+        style: simple
+      responses:
+        "200":
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/RefundInquiryResult"
+          description: Encapsulates the details of transferor refund inquiry.
+      summary: Inquiry Refund
+      tags:
+      - Refund API
+  /v3/purchases/histories:
+    get:
+      description: |-
+        Filters purchase log history based on the given criteria and page request.
+         For quicker responses, choose smaller date ranges, such as one hour,
+         and use `nextPageId` instead of `page` in your request.
+         Ensure all criteria parameter values are URL-Encoded.
+         <p>
+         **Note:** Except for filtering by purchase identifier (`purchaseId`), other filtering options need to be manually enabled by an admin.
+         <p>
+         **Possible Error Codes:**
+         <p>
+         * `from_and_to.difference_must_be_less_than_3_hours`: The difference between `from` and `to` should be less than 3 hours.
+         * `criteria.is_empty`: No filtering criteria specified. Please include at least one.
+         * `states.can_not_have_null_value`: The `states` parameter cannot have a null value.
+         * `too_many_requests`: Only one request at a time is allowed for filtering purchase histories.
+         * `page_number.max_exceeded`: The page number exceeds its allowed value.
+         * `page_size.max_exceeded`: The page size exceeds its allowed value.
+         * `client.not_active`: The client is not active.
+         * `ip.not_trusted`: The client's IP is not trusted. Xref:client_trusted_ips[Read More.]
+         * `security.auth_required`: A Bearer JWT token as the `Authorization` parameter is missing in the request header. Xref:jwt_access_tokens[Read More.]
+         * `token.verification_failed`: The access token is invalid or expired. Xref:jwt_access_tokens[Read More.]
+         * `server.error`: Internal server error. Provide the fingerprint value to help trace the issue internally.
+         <p>
+         **Authorization**: Bearer JWT token in header. Xref:jwt_access_tokens[Read More.]
+      operationId: filterPurchaseHistories
+      parameters:
+      - description: |-
+          Encapsulates the criteria for querying purchase history within a specified date range.
+           Supports pagination via `nextPageId` for faster loading, and optional page/size parameters.
+           <p>
+           Example Usage:
+           from: `2024-10-15T13:00:00Z`
+           to:   `2024-10-15T14:00:00Z`
+        explode: true
+        in: query
+        name: criteria
+        required: true
+        schema:
+          $ref: "#/components/schemas/PurchaseHistoryFilterCriteria"
+        style: form
+      responses:
+        "200":
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/IdPaginatedDetailedPurchaseHistoryDto"
+          description: |-
+            A paginated list of purchase histories.
+             <p>
+             Note: Sometimes, the `totalCount` may be null, indicating it was not calculated for faster response. The `hasNext` field remains accurate and doesn't depend on `totalCount`, so you can use it to fetch the next page.
+      summary: Filter Purchase Histories
+      tags:
+      - Purchase API
+  /v3/balances:
+    get:
+      description: "Retrieves the balances of the client for all its balance types.\n\
+        \ **Possible Error Codes:**\n <p>\n * `client.not_active`: When the current\
+        \ client is not active.\n * `ip.not_trusted`: When the client IP is not trusted.\
+        \ \n * `security.auth_required`: The bearer JWT token is not present in request\
+        \ header as the `Authorization` parameter.\n \n * `token.verification_failed`:\
+        \ The access token is invalid or expired. \n * `server.error`: Internal server\
+        \ error. Please tell us the value of the fingerprint to track the exact problem\
+        \ internally.\n <p>\n **Authorization**: Bearer JWT token in header. "
+      operationId: getClientBalances
+      responses:
+        "200":
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/ClientBalances"
+          description: The balances of the client.
+      summary: Get Client Balances
+      tags:
+      - Client API
+  /v3/app/health:
+    get:
+      description: "Checks the health status of the service.\n\n <p>\n **Possible\
+        \ Error Codes:**\n <p>\n * `ip.not_trusted`: When the client IP is not trusted.\
+        \ \n * `client.not_active`: When the client is inactive.\n * `security.auth_required`:\
+        \ The bearer JWT token is not in the request header as the `Authorization`\
+        \ parameter.\n \n * `token.verification_failed`: When the access token is\
+        \ invalid or expired. \n * `server.error`: Internal server error. Please provide\
+        \ the value of the fingerprint to help us track the exact problem internally.\n\
+        \ <p>\n **Authorization**: Bearer JWT token in the header. "
+      operationId: checkHealthStatus
+      responses:
+        "200":
+          content:
+            '*/*':
+              schema:
+                $ref: "#/components/schemas/HealthDto"
+          description: OK
+      summary: Check Health Status
+      tags:
+      - App API
+components:
+  schemas:
+    GenerateTokenRequest:
+      description: The dto encapsulating the information to generate a pair of access/refresh
+        tokens.
+      example:
+        apiKey: aYPFphbbJF
+        secretKey: yUQO1dAD4iJDnSEkzt9BuNN_LEZifpns_L27C8Jjm091XxbzNP
+      properties:
+        apiKey:
+          description: Represents the api key of client.
+          example: aYPFphbbJF
+          type: string
+        secretKey:
+          description: Represents the secret key of client.
+          example: yUQO1dAD4iJDnSEkzt9BuNN_LEZifpns_L27C8Jjm091XxbzNP
+          type: string
+      type: object
+    TokenDto:
+      description: The dto encapsulating the newly generated access and refresh tokens.
+      example:
+        accessToken: accessToken
+        refreshToken: refreshToken
+      properties:
+        accessToken:
+          description: Represents the new access token.
+          type: string
+        refreshToken:
+          description: Represents the new refresh token.
+          type: string
+      type: object
+    RefreshTokenRequest:
+      description: The dto encapsulating the information to refresh the access/refresh
+        tokens for the client.
+      example:
+        refreshToken: refreshToken
+      properties:
+        refreshToken:
+          description: Represents the refresh token. Used to generate a new pair of
+            access/refresh tokens for the client.
+          type: string
+      type: object
+    CreatePurchaseRequest:
+      description: Encapsulates the information required to create a purchase.
+      example:
+        switching:
+          autoSwitching: true
+          terminalIds:
+          - terminalIds
+          - terminalIds
+        amount: 250000
+        description: some related description
+        payerCardNumbers: "[6037997122223333, 6219861922223333]"
+        checkPayerMobileNumber: true
+        clientReferenceNumber: "5435436"
+        payerCardNumber: "6037997122223333"
+        userIdentifier: a.pourtaghi` or `09185674534
+        payerNationalCode: "0921456778"
+        currency: IRR
+        callbackUrl: https://api.client.ir/purchases/123563/callback
+        additionalData: "{\"someTag\": \"some-value\"}"
+        payerMobileNumber: "09131234321"
+        wage: 5000
+      properties:
+        amount:
+          description: Represents the amount of purchase.
+          example: 250000
+          format: int64
+          type: integer
+        wage:
+          description: |-
+            Represents the wage of purchase.
+             The user will pay the `amount` + `wage`.
+             The Default value is 0.
+             <b>This field can not be bigger that 15 % of the `amount` value.</b>
+          example: 5000
+          format: int64
+          type: integer
+        currency:
+          description: Represents the currency of `amount` and `wage`.
+          enum:
+          - IRR
+          type: string
+        clientReferenceNumber:
+          description: |-
+            Represents a reference number provided by client to trace purchase in our system.
+             The reference number between client purchases must be unique. We will check this on our side.
+             The maximum length is 50 characters.
+          example: "5435436"
+          type: string
+        payerMobileNumber:
+          description: Represents the mobile number of the payer. It will be sent
+            to Psp to autocomplete the payment fields.
+          example: "09131234321"
+          type: string
+        checkPayerMobileNumber:
+          description: |-
+            If this flag is set to true, the payment must be paid only by a card which belongs to the owner of the phone number;
+             Otherwise the purchase will fail. Optional.
+             ** This feature is not enabled by default on certain PSPs and must be enabled by admin.
+             If Client uses this feature when it is not enabled, PPG simply ignores it and creates the purchase as normal. **
+             Note: If this flag is set to true, `payerMobileNumber` field cannot be null or else you will get an error.
+          type: boolean
+        payerCardNumber:
+          description: |-
+            Bank card number which is required to do the transaction.
+             Only this card number can be used to do the transaction. Optional.
+             ** This feature is not enabled by default on certain PSPs and must be enabled by admin.
+             If Client uses this feature when it is not enabled, PPG simply ignores it and creates the purchase as normal. **
+          example: "6037997122223333"
+          type: string
+        payerCardNumbers:
+          description: |-
+            Bank card numbers which are required to do the transaction.
+             Only these card numbers can be used to do the transaction. Optional.
+             ** This feature is not enabled by default on certain PSPs and must be enabled by admin.
+             If Client uses this feature when it is not enabled, PPG simply ignores it and creates the purchase as normal. **
+          example: "[6037997122223333, 6219861922223333]"
+          items:
+            type: string
+          type: array
+          uniqueItems: true
+        payerNationalCode:
+          description: |-
+            Represents the national code of card owner.
+             If provided, this Field will be matched with the national code of card owner in the IPG,
+             and if they don't match, the transaction will fail. Optional.
+             ** This feature is not enabled by default and must be enabled by admin.
+             If Client uses this feature when it is not enabled, PPG simply ignores it and creates the purchase as normal. **
+          example: "0921456778"
+          type: string
+        description:
+          description: |-
+            Represents the client-provided description. Optional.
+             The Maximum length is 256 characters.
+          example: some related description
+          type: string
+        switching:
+          $ref: "#/components/schemas/TerminalSwitchingDto"
+        additionalData:
+          description: Represents the additional data provided by client in JSON format.
+            Optional.
+          example: "{\"someTag\": \"some-value\"}"
+          type: object
+        callbackUrl:
+          description: |-
+            Represents a callback which we should call in order to notify the client about a particular purchase state.
+             For example, when the user pays the purchase, we would redirect the user to this callback and let the client know about
+             the payment. This must be a valid URL address. Maximum length is 1024 characters.
+          example: https://api.client.ir/purchases/123563/callback
+          type: string
+        userIdentifier:
+          description: |-
+            Represents the user identifier in the client system.
+             Maximum length is 50 characters.
+          example: a.pourtaghi` or `09185674534
+          type: string
+      type: object
+    TerminalSwitchingDto:
+      description: Data transfer object used for terminal switching configuration.
+      example:
+        autoSwitching: true
+        terminalIds:
+        - terminalIds
+        - terminalIds
+      properties:
+        terminalIds:
+          description: |-
+            A list of terminal natural IDs required for terminal switching.
+             Terminals and their natural IDs can be retrieved via the .
+             The list's first entry has the highest priority for initializing the purchase, while the last entry has the lowest priority.
+          items:
+            type: string
+          type: array
+        autoSwitching:
+          description: |-
+            Determines whether terminal switching is automatic or manual.
+             Defaults to `true`, which enables automatic switching while prioritizing terminals in the `terminalIds` list.
+             If set to `false`, only the specified terminals will be used without automatic switching.
+          type: boolean
+      type: object
+    CreatePurchaseResult:
+      description: Encapsulates the details of the created purchase including the
+        PSP switching URL.
+      example:
+        affiliateFee: 1
+        netAmount: 5
+        shaparakFee: 5
+        purchaseId: 0
+        fee: 6
+        currency: IRR
+        pspSwitchingUrl: pspSwitchingUrl
+        clientReferenceNumber: clientReferenceNumber
+        purchaseIdStr: purchaseIdStr
+      properties:
+        purchaseId:
+          description: The identifier for the just created purchase. It is generated
+            by our service.
+          format: int64
+          type: integer
+        purchaseIdStr:
+          description: |-
+            The identifier for the just created purchase as String to bypass deserialization issues in some programming languages e.x. Javascript and Typescript.
+             It is generated by our service.
+          type: string
+        clientReferenceNumber:
+          description: Represents the reference number provided by client to trace
+            the purchase in our system. The reference number between client purchases
+            must be unique.
+          type: string
+        pspSwitchingUrl:
+          description: |-
+            The URL pointing to our PSP switching web service.
+             The client must redirect its user to this URL.
+             The user will be redirected to a PSP after initializing the purchase.
+          type: string
+        fee:
+          description: |-
+            Represents the Jibit fee of the purchase.
+             This is available only if the **Early Fee Calculation** feature is enabled.
+          format: int64
+          type: integer
+        affiliateFee:
+          description: |-
+            Represents the affiliate fee of client's reseller.
+             This is available only if the **Early Fee Calculation** feature is enabled and the client has a reseller.
+          format: int64
+          type: integer
+        shaparakFee:
+          description: Represents the Shaparak fee of the purchase.
+          format: int64
+          type: integer
+        netAmount:
+          description: |-
+            Represents the net amount of purchase that will be settled with the client.
+             `Net Amount == Amount + Wage - Prepaid Fee - Prepaid Affiliate Fee - Shaparak Fee`.
+             If the client has no reseller, affiliate fee will be assumed as 0 in the above formula.
+             Fee and Affiliate Fee are decreased from purchase amount only in pre-paid mode.
+             Notes: In any case, The `Amount + Wage` will be added to the client's wallet default balance type (WLT) on purchase success.
+             After Shaparak (or PSP) settlement, the net amount will be added to the client's settleable balance type (STL) or settled directly to the client's IBAN.
+             This is available only if the **Early Fee Calculation** feature is enabled.
+          format: int64
+          type: integer
+        currency:
+          description: Represents the currency type.
+          enum:
+          - IRR
+          type: string
+      type: object
+    VerifyPurchaseResult:
+      description: |-
+        Encapsulates the purchase verification result.
+         It indicates whether the purchase verification was successful, failed, already verified, unknown.
+      example:
+        status: SUCCESSFUL
+      properties:
+        status:
+          description: |-
+            It is the status of verification.
+             **Possible values:**
+             - `SUCCESSFUL`: The verification was successful.
+             - `FAILED`: The verification failed. The payment amount will be returned to the user's bank account. See  step 10.
+             - `UNKNOWN`: The verification was unknown (typically due to a network failure). The client can retry verification before expiration or inquire about the purchase later to determine the final state.
+             - `ALREADY_VERIFIED`: The purchase is already verified, such as a purchase with a `SUCCESS` state.
+             - `NOT_VERIFIABLE`: The purchase is not ready for verification and cannot be verified. Only purchases in the `READY_TO_VERIFY` state can be verified.
+          enum:
+          - SUCCESSFUL
+          - ALREADY_VERIFIED
+          - NOT_VERIFIABLE
+          - FAILED
+          - UNKNOWN
+          type: string
+      type: object
+    ReversePurchaseRequest:
+      description: Encapsulated the information required to reverse a purchase.
+      example:
+        purchaseId: 0
+        clientReferenceNumber: clientReferenceNumber
+      properties:
+        clientReferenceNumber:
+          description: Represents the reference number provided by client to trace
+            the purchase in our system.
+          type: string
+        purchaseId:
+          description: Represents the purchase id.
+          format: int64
+          type: integer
+      type: object
+    ReversePurchaseResult:
+      description: |-
+        Encapsulates the purchase reverse result.
+         It indicates whether the purchase reverse was successful, failed, already reversed or unknown.
+      example:
+        status: SUCCESSFUL
+      properties:
+        status:
+          description: |-
+            It is the status of reverse. Possible states are:
+             <p>
+             * `SUCCESSFUL`: The reverse was successful.
+             * `UNKNOWN`: The reverse was unknown (typically because of a network failure). The client must retry the reverse for this purchase.
+             * `ALREADY_REVERSED`: The purchase is already reversed.
+             * `NOT_REVERSIBLE`: The purchase is not prepared to reverse and thus is not reversible.
+             * `FAILED`: The purchase reversion failed on PSP side.
+          enum:
+          - SUCCESSFUL
+          - ALREADY_REVERSED
+          - NOT_REVERSIBLE
+          - FAILED
+          - UNKNOWN
+          type: string
+      type: object
+    RefundActionRequest:
+      description: Encapsulated the information required to do an action on a (partial)
+        refund.
+      example:
+        transferId: transferId
+      properties:
+        transferId:
+          description: |-
+            This is the unique identifier of a partial refund.
+             * If there is only one refund in the batch, you do not need to specify `transferId`.
+             * If there are multiple refunds in the batch: You must specify `transferId` to indicate the position of the partial refund.
+          type: string
+      type: object
+    RefundPurchaseRequest:
+      description: Encapsulates the information required to refund a purchase.
+      example:
+        amount: 6
+        purchaseId: 0
+        cancellable: true
+        clientReferenceNumber: clientReferenceNumber
+      properties:
+        clientReferenceNumber:
+          description: Represents the reference number provided by client to trace
+            the purchase in our system.
+          type: string
+        purchaseId:
+          description: Represents the purchase id.
+          format: int64
+          type: integer
+        amount:
+          description: Represents the refund amount.
+          format: int64
+          type: integer
+        cancellable:
+          description: Whether to pend the refund request and perform it after one
+            hour.
+          type: boolean
+      type: object
+    RefundPurchaseResult:
+      description: Encapsulates the response information of purchase refund from transferor.
+      example:
+        partialRefundIndex: 6
+        batchId: batchId
+        transferId: transferId
+        refundId: 0
+      properties:
+        refundId:
+          description: represents the purchase identifier of the refund.
+          format: int64
+          type: integer
+        partialRefundIndex:
+          deprecated: true
+          description: |-
+            Represents the position of a partial refund within a batch of refunds for a purchase. It is one-based, meaning it starts at 1.
+             ** DEPRECATED. Use `transferId` instead**
+          format: int32
+          type: integer
+        batchId:
+          description: The batch id returned from transferor.
+          type: string
+        transferId:
+          description: The transfer id returned from transferor.
+          type: string
+      type: object
+    CollectionResponseTerminalDto:
+      description: A wrapper for the collection responses.
+      example:
+        elements:
+        - naturalId: saman_123456789
+          isCheckPayerMobileNumberActive: true
+          clientName: clientName
+          directSettlement: true
+          type: NORMAL
+          priority: 0
+          createdAt: 2000-01-23T04:56:07.000+00:00
+          isSingleCardFreezeActive: true
+          clientCode: 4MdA9d
+          isAutoVerifyEnabled: true
+          isCheckPayerNationalCodeActive: true
+          pspTerminalId: pspTerminalId
+          pspName: pspName
+          pspMerchantNumber: pspMerchantNumber
+        - naturalId: saman_123456789
+          isCheckPayerMobileNumberActive: true
+          clientName: clientName
+          directSettlement: true
+          type: NORMAL
+          priority: 0
+          createdAt: 2000-01-23T04:56:07.000+00:00
+          isSingleCardFreezeActive: true
+          clientCode: 4MdA9d
+          isAutoVerifyEnabled: true
+          isCheckPayerNationalCodeActive: true
+          pspTerminalId: pspTerminalId
+          pspName: pspName
+          pspMerchantNumber: pspMerchantNumber
+      properties:
+        elements:
+          description: Represents the actual data.
+          items:
+            $ref: "#/components/schemas/TerminalDto"
+          type: array
+      type: object
+    TerminalDto:
+      description: |-
+        Data Transfer Object representing a terminal, typically used within the context of Payment Service Providers (PSP).
+         This class includes details about the terminal, such as its unique identifiers, type, and associated configurations.
+      example:
+        naturalId: saman_123456789
+        isCheckPayerMobileNumberActive: true
+        clientName: clientName
+        directSettlement: true
+        type: NORMAL
+        priority: 0
+        createdAt: 2000-01-23T04:56:07.000+00:00
+        isSingleCardFreezeActive: true
+        clientCode: 4MdA9d
+        isAutoVerifyEnabled: true
+        isCheckPayerNationalCodeActive: true
+        pspTerminalId: pspTerminalId
+        pspName: pspName
+        pspMerchantNumber: pspMerchantNumber
+      properties:
+        naturalId:
+          description: Represents the unique natural identifier of a terminal.
+          example: saman_123456789
+          type: string
+        clientCode:
+          description: Represents the unique code associated with a client.
+          example: 4MdA9d
+          type: string
+        clientName:
+          description: Represents the name of the client associated with the terminal.
+            `Snapp Pay`
+          type: string
+        pspName:
+          description: |-
+            Represents the name of payment service provider (PSP) associated with the terminal.
+                                                   Possible values are: `saman-ipg`, `sepehr-ipg`, `behpardakht-ipg`
+          type: string
+        pspTerminalId:
+          description: |-
+            The unique identifier of the PSP terminal.
+                                                   This ID is used to associate a terminal with a specific PSP
+                                                   and is essential for processing transactions through that terminal.
+          type: string
+        pspMerchantNumber:
+          description: |-
+            Represents the merchant number associated with a specific PSP.
+                                                   This field is used to uniquely identify a merchant in the PSP system.
+          type: string
+        type:
+          description: |-
+            Represents the type of the terminal in the system.
+                                                   It indicates the category of the terminal and is used to define
+                                                   its behavior and processing type. The terminal can belong to
+                                                   various types such as normal, payment facilitation, or auto-settling.
+          enum:
+          - NORMAL
+          - PAYMENT_FACILITATION
+          - AUTO_SETTLING_PF
+          type: string
+        directSettlement:
+          description: |-
+            Represents whether the terminal supports direct settlement.
+                                                   A terminal with direct settlement enabled allows funds to be
+                                                   transferred directly to the settlement account without intermediary steps.
+          type: boolean
+        priority:
+          description: |-
+            Represents the priority of the terminal.
+                                                   This value generally determines the importance level
+                                                   of the terminal in processing or ordering operations.
+                                                   <p>
+                                                   Higher priority means a greater chance for terminal to be used.
+          format: int32
+          type: integer
+        isAutoVerifyEnabled:
+          description: Indicates whether auto-verification is enabled for the terminal.
+          type: boolean
+        isCheckPayerMobileNumberActive:
+          description: |-
+            Indicates whether the functionality to check if the payer's mobile number is active
+                                                   is enabled or not. This field is used in scenarios where verifying the active status
+                                                   of the payer's mobile number is required for processing.
+          type: boolean
+        isCheckPayerNationalCodeActive:
+          description: |-
+            Indicates whether the functionality to check if the payer's national code is
+                                                   enabled or not.
+          type: boolean
+        isSingleCardFreezeActive:
+          description: |-
+            Indicates whether the functionality to freeze a single card number in IPG page
+                                                   is enabled or not.
+          type: boolean
+        createdAt:
+          description: |-
+            Represents the timestamp indicating when the `TerminalDto` instance was created.
+                                                   This field is expected to store the creation time in the UTC timezone.
+          format: date-time
+          type: string
+      type: object
+    SettlementFilterCriteria:
+      description: Encapsulates the information to filter settlements.
+      properties:
+        settlementId:
+          description: Finds a settlement by its identifier. The `null` means no filtering
+            at all.
+          example: 1234455
+          format: int64
+          type: integer
+        page:
+          description: |-
+            Represents the page number; One indexed. The `null` means the first page.
+             The max page number is 20.
+          example: 1
+          format: int32
+          type: integer
+        size:
+          description: |-
+            Represents the page size. The `null` means to use default size.
+             The default page size is 25.
+             The max page size is 250.
+          example: 10
+          format: int32
+          type: integer
+      type: object
+    DetailedSettlementDto:
+      description: Encapsulates a detailed view of a settlement.
+      example:
+        shaparakFailReason: UNKNOWN
+        shaparakTrackingNumber: shaparakTrackingNumber
+        fileName: fileName
+        amount: 5
+        paymentFacilitatorIban: paymentFacilitatorIban
+        modifiedAt: 2021-04-03T13:25:25Z
+        directSettlement: true
+        terminalId: 046b6c7f-0b8a-43b9-b35d-6489e6daee91
+        settlementId: 5
+        resellerCode: resellerCode
+        shaparakTransactionId: shaparakTransactionId
+        iin: 7
+        settlementIban: settlementIban
+        affiliateFee: 9
+        createdAt: 2021-04-04T14:21:25Z
+        ledgerAccount: ledgerAccount
+        acceptorCode: acceptorCode
+        settledAt: 2021-04-03T13:25:25Z
+        shaparakReferenceNumber: shaparakReferenceNumber
+        currency: IRR
+        state: IN_PROGRESS
+        cutoff: cutoff
+        wage: 2
+      properties:
+        settlementId:
+          description: Represents the settlement identifier.
+          format: int64
+          type: integer
+        terminalId:
+          description: Represents the terminal Id.
+          format: uuid
+          type: string
+        fileName:
+          description: Represents the file name which was sent to shaparak.
+          type: string
+        state:
+          description: Represents the settlement state.
+          enum:
+          - IN_PROGRESS
+          - FAILED
+          - SETTLED
+          - OBSOLETE
+          - EARLY_SETTLED
+          type: string
+        amount:
+          description: Represents the settlement amount.
+          format: int64
+          type: integer
+        wage:
+          description: Represents the settlement wage.
+          format: int64
+          type: integer
+        directSettlement:
+          description: Represents whether settlement is direct settled.
+          type: boolean
+        currency:
+          description: Represents the currency type.
+          enum:
+          - IRR
+          type: string
+        cutoff:
+          description: Cutoff time.
+          type: string
+        acceptorCode:
+          description: Represents the acceptor code.
+          type: string
+        ledgerAccount:
+          description: Represents ledger account of client.
+          type: string
+        iin:
+          description: Represents the iin.
+          format: int64
+          type: integer
+        paymentFacilitatorIban:
+          description: Represents the pf Iban.
+          type: string
+        settlementIban:
+          description: Represents the settlement Iban.
+          type: string
+        resellerCode:
+          description: Represents the reseller code
+          type: string
+        affiliateFee:
+          description: Represents the reseller's affiliate fee.
+          format: int64
+          type: integer
+        shaparakFailReason:
+          description: Represents the shaparak fail reason.
+          enum:
+          - UNKNOWN
+          - INTERNAL_ERROR
+          - MISSING_VALUE
+          - DATA_FORMAT_MISMATCH
+          - DATA_LENGTH_MISMATCH
+          - INCONSISTENT_DATA
+          - DUPLICATE_DATA
+          - ERROR_ACCESSING_DATA
+          - REFERENCED_DATA_NOT_FOUND
+          - EXTERNAL_SERVICE_UNREACHABLE
+          - INVALID_EXTERNAL_SERVICE_RESPONSE
+          - EXPIRED_REFERENCE
+          - GENERAL_EXTERNAL_SERVICE_ERROR
+          - UNKNOWN_DATA_PROVIDED
+          - OUT_OF_BOUNDS_DATA
+          - NOT_ENOUGH_RESOURCES
+          - NO_ACH_REF_NUM
+          type: string
+        shaparakReferenceNumber:
+          description: Represents the shaparak reference number.
+          type: string
+        shaparakTrackingNumber:
+          description: Represents the shaparak tracking number.
+          type: string
+        shaparakTransactionId:
+          description: Represents the shaparak tracking id.
+          type: string
+        createdAt:
+          description: When was the settlement created.
+          example: 2021-04-04T14:21:25Z
+          format: date-time
+          type: string
+        modifiedAt:
+          description: When was the settlement modified.
+          example: 2021-04-03T13:25:25Z
+          format: date-time
+          type: string
+        settledAt:
+          description: When was the settlement settled.
+          example: 2021-04-03T13:25:25Z
+          format: date-time
+          type: string
+      type: object
+    PaginatedDetailedSettlementDto:
+      description: DTO to wrap paginated collection of elements.
+      example:
+        pageNumber: 0
+        size: 6
+        numberOfElements: 1
+        elements:
+        - shaparakFailReason: UNKNOWN
+          shaparakTrackingNumber: shaparakTrackingNumber
+          fileName: fileName
+          amount: 5
+          paymentFacilitatorIban: paymentFacilitatorIban
+          modifiedAt: 2021-04-03T13:25:25Z
+          directSettlement: true
+          terminalId: 046b6c7f-0b8a-43b9-b35d-6489e6daee91
+          settlementId: 5
+          resellerCode: resellerCode
+          shaparakTransactionId: shaparakTransactionId
+          iin: 7
+          settlementIban: settlementIban
+          affiliateFee: 9
+          createdAt: 2021-04-04T14:21:25Z
+          ledgerAccount: ledgerAccount
+          acceptorCode: acceptorCode
+          settledAt: 2021-04-03T13:25:25Z
+          shaparakReferenceNumber: shaparakReferenceNumber
+          currency: IRR
+          state: IN_PROGRESS
+          cutoff: cutoff
+          wage: 2
+        - shaparakFailReason: UNKNOWN
+          shaparakTrackingNumber: shaparakTrackingNumber
+          fileName: fileName
+          amount: 5
+          paymentFacilitatorIban: paymentFacilitatorIban
+          modifiedAt: 2021-04-03T13:25:25Z
+          directSettlement: true
+          terminalId: 046b6c7f-0b8a-43b9-b35d-6489e6daee91
+          settlementId: 5
+          resellerCode: resellerCode
+          shaparakTransactionId: shaparakTransactionId
+          iin: 7
+          settlementIban: settlementIban
+          affiliateFee: 9
+          createdAt: 2021-04-04T14:21:25Z
+          ledgerAccount: ledgerAccount
+          acceptorCode: acceptorCode
+          settledAt: 2021-04-03T13:25:25Z
+          shaparakReferenceNumber: shaparakReferenceNumber
+          currency: IRR
+          state: IN_PROGRESS
+          cutoff: cutoff
+          wage: 2
+        hasPrevious: true
+        hasNext: true
+      properties:
+        pageNumber:
+          description: The current 1-index page number.
+          format: int32
+          type: integer
+        size:
+          description: The size of current page.
+          format: int32
+          type: integer
+        numberOfElements:
+          description: Total number of elements.
+          format: int64
+          type: integer
+        hasNext:
+          description: Can this page be followed by another page after it?
+          type: boolean
+        hasPrevious:
+          description: Is there a previous page for this page?
+          type: boolean
+        elements:
+          description: The actual paginated elements.
+          items:
+            $ref: "#/components/schemas/DetailedSettlementDto"
+          type: array
+      type: object
+    PurchaseFilterCriteria:
+      description: Encapsulates the information to filter purchases.
+      properties:
+        purchaseId:
+          description: Finds a purchase by its identifier. Can be used to find an
+            exact purchase. The `null` means no filtering at all.
+          example: 1234455
+          format: int64
+          type: integer
+        status:
+          description: Filters purchases based on their state. The `null` means no
+            filtering at all.
+          enum:
+          - MANUALLY_SUCCESS
+          - SUCCESS
+          - REVERSED
+          - FAILED
+          - UNKNOWN
+          - EXPIRED
+          - IN_PROGRESS
+          - READY_TO_VERIFY
+          example: SUCCESS
+          type: string
+        clientReferenceNumber:
+          description: Finds a purchase by its client reference number. The `null`
+            means no filtering at all.
+          example: T1233
+          type: string
+        pspReferenceNumber:
+          description: Filters purchases by their PSP reference number. The `null`
+            means no filtering at all.
+          example: sfGD93tgGQ153Jr2Qm3
+          type: string
+        pspRrn:
+          description: Filters purchases by their PSP RRN. The `null` means no filtering
+            at all.
+          example: "385739230986"
+          type: string
+        pspTraceNumber:
+          description: Filters purchases by their PSP trace number. The `null` means
+            no filtering at all.
+          example: "43083947502"
+          type: string
+        userIdentifier:
+          description: Filters purchases based on their user identifier. The `null`
+            means no filtering at all.
+          example: "103243"
+          type: string
+        from:
+          description: Filters purchases from their creation date inclusively. The
+            `null` means no filtering at all.
+          example: 2021-04-03T13:21:25Z
+          format: date-time
+          type: string
+        to:
+          description: Filters purchases to their creation date exclusively. The `null`
+            means no filtering at all.
+          example: 2021-05-03T13:21:25Z
+          format: date-time
+          type: string
+        page:
+          description: |-
+            Represents the page number; One indexed. The `null` means the first page.
+             The max page number is 20.
+          example: 1
+          format: int32
+          type: integer
+        size:
+          description: |-
+            Represents the page size. The `null` means to use default size.
+             The default page size is 25.
+             The max page size is 250.
+          example: 10
+          format: int32
+          type: integer
+      type: object
+    DetailedPurchaseDto:
+      description: Encapsulates a detailed view of a purchase.
+      example:
+        pspReferenceNumber: pspReferenceNumber
+        pspMaskedCardNumber: pspMaskedCardNumber
+        redirectPayerIp: redirectPayerIp
+        feePaymentType: PRE_PAID
+        pspRrn: pspRrn
+        purchaseId: 5
+        fee: 7
+        verifiedAt: 2021-04-03T13:25:25Z
+        description: description
+        pspFailReasons:
+        - code: 4
+          description: description
+          pspError: pspError
+        - code: 4
+          description: description
+          pspError: pspError
+        resellerCode: resellerCode
+        settlementId: 453467457326547
+        clientReferenceNumber: clientReferenceNumber
+        purchaseIdStr: purchaseIdStr
+        pspTraceNumber: pspTraceNumber
+        createdAt: 2021-04-03T13:21:25Z
+        payerCardNumber: payerCardNumber
+        userIdentifier: userIdentifier
+        pspSettled: true
+        payerNationalCode: payerNationalCode
+        currency: IRR
+        callbackUrl: callbackUrl
+        refunded: true
+        state: MANUALLY_SUCCESS
+        additionalData: "{\"someTag\": \"some-value\"}"
+        pspHashedCardNumber: pspHashedCardNumber
+        wage: 2
+        expirationDate: 2000-01-23T04:56:07.000+00:00
+        refundableAmount: 7
+        amount: 5
+        hasContradiction: true
+        netAmount: 2
+        initPayerIp: initPayerIp
+        refundInquiryResult:
+          transfers:
+          - amount: 1
+            metadata: metadata
+            modifiedAt: 2000-01-23T04:56:07.000+00:00
+            destination: destination
+            description: description
+            feeCurrency: feeCurrency
+            destinationFirstName: destinationFirstName
+            partialRefundIndex: 1
+            transferID: transferID
+            cancellable: true
+            feeAmount: 1
+            createdAt: 2000-01-23T04:56:07.000+00:00
+            destinationLastName: destinationLastName
+            paymentID: paymentID
+            bankTransferID: bankTransferID
+            transferMode: ACH
+            notifyURL: notifyURL
+            currency: currency
+            failReason: failReason
+            state: INITIALIZED
+            refundId: 7
+          - amount: 1
+            metadata: metadata
+            modifiedAt: 2000-01-23T04:56:07.000+00:00
+            destination: destination
+            description: description
+            feeCurrency: feeCurrency
+            destinationFirstName: destinationFirstName
+            partialRefundIndex: 1
+            transferID: transferID
+            cancellable: true
+            feeAmount: 1
+            createdAt: 2000-01-23T04:56:07.000+00:00
+            destinationLastName: destinationLastName
+            paymentID: paymentID
+            bankTransferID: bankTransferID
+            transferMode: ACH
+            notifyURL: notifyURL
+            currency: currency
+            failReason: failReason
+            state: INITIALIZED
+            refundId: 7
+          batchID: batchID
+          refundedAmount: 6
+        affiliateFee: 3
+        billingDate: 2021-04-04T14:21:25Z
+        shaparakFee: 9
+        pspFailReason: pspFailReason
+        pspCardOwner: pspCardOwner
+        pspSettledAt: 2021-04-04T14:21:25Z
+        pspName: pspName
+        payerMobileNumber: payerMobileNumber
+      properties:
+        purchaseId:
+          description: Represents the purchase identifier.
+          format: int64
+          type: integer
+        purchaseIdStr:
+          description: Represents the purchase identifier as String to bypass deserialization
+            issues in some programming languages e.x. Javascript and Typescript.
+          type: string
+        amount:
+          description: Represents the amount of purchase.
+          format: int64
+          type: integer
+        wage:
+          description: Represents the wage of purchase given by client.
+          format: int64
+          type: integer
+        fee:
+          description: Represents the Jibit fee for this purchase.
+          format: int64
+          type: integer
+        feePaymentType:
+          description: Represents the payment type of purchase fee.
+          enum:
+          - PRE_PAID
+          - POST_PAID
+          - PRE_PAID_WALLET
+          type: string
+        shaparakFee:
+          description: Represents the Shaparak fee for this purchase.
+          format: int64
+          type: integer
+        resellerCode:
+          description: Represents the reseller code for this purchase.
+          type: string
+        affiliateFee:
+          description: Represents the reseller affiliate fee for this purchase.
+          format: int64
+          type: integer
+        netAmount:
+          description: |-
+            Represents the net amount of purchase that will be settled with the client.
+             `Net Amount == Amount + Wage - Prepaid Fee - Prepaid Affiliate Fee - Shaparak Fee`.
+             If the client has no reseller, affiliate fee will be assumed as 0 in the above formula.
+             Fee and Affiliate Fee are decreased from purchase amount only in pre-paid mode.
+             Notes: In any case, The `Amount + Wage` will be added to the client's wallet default balance type (WLT) on purchase success.
+             After Shaparak (or PSP) settlement, the net amount will be added to the client's settleable balance type (STL) or settled directly to the client's IBAN.
+             This is available only if the **Early Fee Calculation** feature is enabled.
+          format: int64
+          type: integer
+        currency:
+          description: Represents the currency type.
+          enum:
+          - IRR
+          type: string
+        callbackUrl:
+          description: |-
+            Represents a callback which we should call in order to notify the client about a particular purchase state.
+             For example, when the user pays the purchase, we would redirect the user to this callback and let the client know about the payment.
+          type: string
+        state:
+          description: |-
+            Represents the simple purchase state.
+             <p>
+             The following states indicate the purchase had a contradiction and now is resolved.
+             <p>
+             * `MANUALLY_SUCCESS`: The purchase has been successful manually.
+             * `REVERSED`: The purchase has been reversed manually.
+          enum:
+          - MANUALLY_SUCCESS
+          - SUCCESS
+          - REVERSED
+          - FAILED
+          - UNKNOWN
+          - EXPIRED
+          - IN_PROGRESS
+          - READY_TO_VERIFY
+          type: string
+        clientReferenceNumber:
+          description: A string value from client side to trace purchase in our system.
+            This value is unique between client purchases.
+          type: string
+        pspName:
+          description: Represents the PSP name which the purchase belongs to.
+          type: string
+        pspRrn:
+          description: "Represents the PSP Retrieval Reference Number, a key to uniquely\
+            \ identify a card transaction based on the ISO 8583 standard."
+          type: string
+        pspReferenceNumber:
+          description: Represents the PSP reference number.
+          type: string
+        pspTraceNumber:
+          description: Represents the PSP trace number.
+          type: string
+        expirationDate:
+          description: When has the purchase been expired?
+          format: date-time
+          type: string
+        userIdentifier:
+          description: Identifies the user in the client system.
+          type: string
+        payerMobileNumber:
+          description: Represents the user mobile number.
+          type: string
+        payerCardNumber:
+          description: Represents the user card number that the purchase is forced
+            to do the transaction.
+          type: string
+        payerNationalCode:
+          description: Represents the user national code that is used to check the
+            owner of the PSP payer card.
+          type: string
+        description:
+          description: An optional client provided description for the purchase.
+          type: string
+        additionalData:
+          description: An optional additional data provided by the client in JSON
+            format.
+          example: "{\"someTag\": \"some-value\"}"
+          type: object
+        pspMaskedCardNumber:
+          description: Masked bank card number used to do the transaction.
+          type: string
+        pspHashedCardNumber:
+          description: Hashed bank card number used to do the transaction. Provided
+            by PSP.
+          type: string
+        pspCardOwner:
+          description: Represents the card owner name.
+          type: string
+        pspFailReason:
+          deprecated: true
+          description: |-
+            Represents the PSP fail reason.
+             **DEPRECATED. For removal in the future. Use `pspFailReasons` instead.**
+          type: string
+        pspFailReasons:
+          description: Represents the list of PSP fail reasons.
+          items:
+            $ref: "#/components/schemas/PspFailReason"
+          type: array
+        initPayerIp:
+          description: The IP address of the user calling the payment URL generated
+            by us.
+          type: string
+        redirectPayerIp:
+          description: The IP address of the user reported by the PSP.
+          type: string
+        pspSettled:
+          description: Whether the PSP settled the payment.
+          type: boolean
+        refunded:
+          description: Whether the purchase is refunded.
+          type: boolean
+        refundInquiryResult:
+          $ref: "#/components/schemas/RefundInquiryResult"
+        refundableAmount:
+          description: Represents the refundable amount. It is equal to or less than
+            `amount + wage`.
+          format: int64
+          type: integer
+        createdAt:
+          description: When the purchase created?
+          example: 2021-04-03T13:21:25Z
+          format: date-time
+          type: string
+        billingDate:
+          description: When was the billing date? Used to generate the billing receipt.
+          example: 2021-04-04T14:21:25Z
+          format: date-time
+          type: string
+        verifiedAt:
+          description: When was the payment verification date?
+          example: 2021-04-03T13:25:25Z
+          format: date-time
+          type: string
+        pspSettledAt:
+          description: When the PSP settled the payment?
+          example: 2021-04-04T14:21:25Z
+          format: date-time
+          type: string
+        settlementId:
+          description: Indicates the identifier of the settlement which the purchase
+            is settled by.
+          example: 453467457326547
+          format: int64
+          type: integer
+        hasContradiction:
+          description: Indicates whether the purchase had a contradiction or not.
+          type: boolean
+      type: object
+    PaginatedDetailedPurchaseDto:
+      description: DTO to wrap paginated collection of elements.
+      example:
+        pageNumber: 0
+        size: 6
+        numberOfElements: 1
+        elements:
+        - pspReferenceNumber: pspReferenceNumber
+          pspMaskedCardNumber: pspMaskedCardNumber
+          redirectPayerIp: redirectPayerIp
+          feePaymentType: PRE_PAID
+          pspRrn: pspRrn
+          purchaseId: 5
+          fee: 7
+          verifiedAt: 2021-04-03T13:25:25Z
+          description: description
+          pspFailReasons:
+          - code: 4
+            description: description
+            pspError: pspError
+          - code: 4
+            description: description
+            pspError: pspError
+          resellerCode: resellerCode
+          settlementId: 453467457326547
+          clientReferenceNumber: clientReferenceNumber
+          purchaseIdStr: purchaseIdStr
+          pspTraceNumber: pspTraceNumber
+          createdAt: 2021-04-03T13:21:25Z
+          payerCardNumber: payerCardNumber
+          userIdentifier: userIdentifier
+          pspSettled: true
+          payerNationalCode: payerNationalCode
+          currency: IRR
+          callbackUrl: callbackUrl
+          refunded: true
+          state: MANUALLY_SUCCESS
+          additionalData: "{\"someTag\": \"some-value\"}"
+          pspHashedCardNumber: pspHashedCardNumber
+          wage: 2
+          expirationDate: 2000-01-23T04:56:07.000+00:00
+          refundableAmount: 7
+          amount: 5
+          hasContradiction: true
+          netAmount: 2
+          initPayerIp: initPayerIp
+          refundInquiryResult:
+            transfers:
+            - amount: 1
+              metadata: metadata
+              modifiedAt: 2000-01-23T04:56:07.000+00:00
+              destination: destination
+              description: description
+              feeCurrency: feeCurrency
+              destinationFirstName: destinationFirstName
+              partialRefundIndex: 1
+              transferID: transferID
+              cancellable: true
+              feeAmount: 1
+              createdAt: 2000-01-23T04:56:07.000+00:00
+              destinationLastName: destinationLastName
+              paymentID: paymentID
+              bankTransferID: bankTransferID
+              transferMode: ACH
+              notifyURL: notifyURL
+              currency: currency
+              failReason: failReason
+              state: INITIALIZED
+              refundId: 7
+            - amount: 1
+              metadata: metadata
+              modifiedAt: 2000-01-23T04:56:07.000+00:00
+              destination: destination
+              description: description
+              feeCurrency: feeCurrency
+              destinationFirstName: destinationFirstName
+              partialRefundIndex: 1
+              transferID: transferID
+              cancellable: true
+              feeAmount: 1
+              createdAt: 2000-01-23T04:56:07.000+00:00
+              destinationLastName: destinationLastName
+              paymentID: paymentID
+              bankTransferID: bankTransferID
+              transferMode: ACH
+              notifyURL: notifyURL
+              currency: currency
+              failReason: failReason
+              state: INITIALIZED
+              refundId: 7
+            batchID: batchID
+            refundedAmount: 6
+          affiliateFee: 3
+          billingDate: 2021-04-04T14:21:25Z
+          shaparakFee: 9
+          pspFailReason: pspFailReason
+          pspCardOwner: pspCardOwner
+          pspSettledAt: 2021-04-04T14:21:25Z
+          pspName: pspName
+          payerMobileNumber: payerMobileNumber
+        - pspReferenceNumber: pspReferenceNumber
+          pspMaskedCardNumber: pspMaskedCardNumber
+          redirectPayerIp: redirectPayerIp
+          feePaymentType: PRE_PAID
+          pspRrn: pspRrn
+          purchaseId: 5
+          fee: 7
+          verifiedAt: 2021-04-03T13:25:25Z
+          description: description
+          pspFailReasons:
+          - code: 4
+            description: description
+            pspError: pspError
+          - code: 4
+            description: description
+            pspError: pspError
+          resellerCode: resellerCode
+          settlementId: 453467457326547
+          clientReferenceNumber: clientReferenceNumber
+          purchaseIdStr: purchaseIdStr
+          pspTraceNumber: pspTraceNumber
+          createdAt: 2021-04-03T13:21:25Z
+          payerCardNumber: payerCardNumber
+          userIdentifier: userIdentifier
+          pspSettled: true
+          payerNationalCode: payerNationalCode
+          currency: IRR
+          callbackUrl: callbackUrl
+          refunded: true
+          state: MANUALLY_SUCCESS
+          additionalData: "{\"someTag\": \"some-value\"}"
+          pspHashedCardNumber: pspHashedCardNumber
+          wage: 2
+          expirationDate: 2000-01-23T04:56:07.000+00:00
+          refundableAmount: 7
+          amount: 5
+          hasContradiction: true
+          netAmount: 2
+          initPayerIp: initPayerIp
+          refundInquiryResult:
+            transfers:
+            - amount: 1
+              metadata: metadata
+              modifiedAt: 2000-01-23T04:56:07.000+00:00
+              destination: destination
+              description: description
+              feeCurrency: feeCurrency
+              destinationFirstName: destinationFirstName
+              partialRefundIndex: 1
+              transferID: transferID
+              cancellable: true
+              feeAmount: 1
+              createdAt: 2000-01-23T04:56:07.000+00:00
+              destinationLastName: destinationLastName
+              paymentID: paymentID
+              bankTransferID: bankTransferID
+              transferMode: ACH
+              notifyURL: notifyURL
+              currency: currency
+              failReason: failReason
+              state: INITIALIZED
+              refundId: 7
+            - amount: 1
+              metadata: metadata
+              modifiedAt: 2000-01-23T04:56:07.000+00:00
+              destination: destination
+              description: description
+              feeCurrency: feeCurrency
+              destinationFirstName: destinationFirstName
+              partialRefundIndex: 1
+              transferID: transferID
+              cancellable: true
+              feeAmount: 1
+              createdAt: 2000-01-23T04:56:07.000+00:00
+              destinationLastName: destinationLastName
+              paymentID: paymentID
+              bankTransferID: bankTransferID
+              transferMode: ACH
+              notifyURL: notifyURL
+              currency: currency
+              failReason: failReason
+              state: INITIALIZED
+              refundId: 7
+            batchID: batchID
+            refundedAmount: 6
+          affiliateFee: 3
+          billingDate: 2021-04-04T14:21:25Z
+          shaparakFee: 9
+          pspFailReason: pspFailReason
+          pspCardOwner: pspCardOwner
+          pspSettledAt: 2021-04-04T14:21:25Z
+          pspName: pspName
+          payerMobileNumber: payerMobileNumber
+        hasPrevious: true
+        hasNext: true
+      properties:
+        pageNumber:
+          description: The current 1-index page number.
+          format: int32
+          type: integer
+        size:
+          description: The size of current page.
+          format: int32
+          type: integer
+        numberOfElements:
+          description: Total number of elements.
+          format: int64
+          type: integer
+        hasNext:
+          description: Can this page be followed by another page after it?
+          type: boolean
+        hasPrevious:
+          description: Is there a previous page for this page?
+          type: boolean
+        elements:
+          description: The actual paginated elements.
+          items:
+            $ref: "#/components/schemas/DetailedPurchaseDto"
+          type: array
+      type: object
+    PspFailReason:
+      example:
+        code: 4
+        description: description
+        pspError: pspError
+      properties:
+        code:
+          format: int32
+          type: integer
+        description:
+          type: string
+        pspError:
+          deprecated: true
+          type: string
+      type: object
+    RefundInquiryResult:
+      description: Encapsulates the details of transferor refund inquiry.
+      example:
+        transfers:
+        - amount: 1
+          metadata: metadata
+          modifiedAt: 2000-01-23T04:56:07.000+00:00
+          destination: destination
+          description: description
+          feeCurrency: feeCurrency
+          destinationFirstName: destinationFirstName
+          partialRefundIndex: 1
+          transferID: transferID
+          cancellable: true
+          feeAmount: 1
+          createdAt: 2000-01-23T04:56:07.000+00:00
+          destinationLastName: destinationLastName
+          paymentID: paymentID
+          bankTransferID: bankTransferID
+          transferMode: ACH
+          notifyURL: notifyURL
+          currency: currency
+          failReason: failReason
+          state: INITIALIZED
+          refundId: 7
+        - amount: 1
+          metadata: metadata
+          modifiedAt: 2000-01-23T04:56:07.000+00:00
+          destination: destination
+          description: description
+          feeCurrency: feeCurrency
+          destinationFirstName: destinationFirstName
+          partialRefundIndex: 1
+          transferID: transferID
+          cancellable: true
+          feeAmount: 1
+          createdAt: 2000-01-23T04:56:07.000+00:00
+          destinationLastName: destinationLastName
+          paymentID: paymentID
+          bankTransferID: bankTransferID
+          transferMode: ACH
+          notifyURL: notifyURL
+          currency: currency
+          failReason: failReason
+          state: INITIALIZED
+          refundId: 7
+        batchID: batchID
+        refundedAmount: 6
+      properties:
+        transfers:
+          description: Represents the list of Transfers.
+          items:
+            $ref: "#/components/schemas/Transfer"
+          type: array
+        batchID:
+          description: Represents the batch id.
+          type: string
+        refundedAmount:
+          format: int64
+          type: integer
+      type: object
+    Transfer:
+      description: Encapsulates the details of transfers field.
+      example:
+        amount: 1
+        metadata: metadata
+        modifiedAt: 2000-01-23T04:56:07.000+00:00
+        destination: destination
+        description: description
+        feeCurrency: feeCurrency
+        destinationFirstName: destinationFirstName
+        partialRefundIndex: 1
+        transferID: transferID
+        cancellable: true
+        feeAmount: 1
+        createdAt: 2000-01-23T04:56:07.000+00:00
+        destinationLastName: destinationLastName
+        paymentID: paymentID
+        bankTransferID: bankTransferID
+        transferMode: ACH
+        notifyURL: notifyURL
+        currency: currency
+        failReason: failReason
+        state: INITIALIZED
+        refundId: 7
+      properties:
+        refundId:
+          description: represents the purchase identifier of the refund.
+          format: int64
+          type: integer
+        partialRefundIndex:
+          deprecated: true
+          description: |-
+            Represents the position of a partial refund within a batch of refunds for a purchase. It is one-based, meaning it starts at 1.
+             ** DEPRECATED. Use `transferId` instead**
+          format: int32
+          type: integer
+        transferMode:
+          enum:
+          - ACH
+          - NORMAL
+          - RTGS
+          type: string
+        destination:
+          type: string
+        destinationFirstName:
+          type: string
+        destinationLastName:
+          type: string
+        amount:
+          format: int64
+          type: integer
+        currency:
+          type: string
+        description:
+          type: string
+        metadata:
+          type: string
+        cancellable:
+          type: boolean
+        state:
+          description: |-
+            State can have these following values:
+             TRANSFERRED means refund is completely done. FAILED means refund is failed. INITIALIZED and IN_PROGRESS mean refund is in progress. CANCELLING means it is in the middle of cancel process. CANCELLED means refund is cancelled.
+          enum:
+          - INITIALIZED
+          - FEE_COMPUTED
+          - CORE_SUBMITTED
+          - ON_HOLD
+          - DESTINATION_IDENTIFIED
+          - CANCELLING
+          - CANCELLED
+          - IN_PROGRESS
+          - TRANSFERRED
+          - FAILED
+          - RETRYING
+          - ON_HOLD_BALANCES_NOT_ENOUGH
+          - ON_HOLD_WAIT_FOR_MANUAL_SUBMISSION
+          - ON_HOLD_WAIT_FOR_VERIFY
+          - MANUALLY_FAILED
+          type: string
+        failReason:
+          type: string
+        feeCurrency:
+          type: string
+        feeAmount:
+          format: int64
+          type: integer
+        createdAt:
+          format: date-time
+          type: string
+        modifiedAt:
+          format: date-time
+          type: string
+        notifyURL:
+          type: string
+        paymentID:
+          type: string
+        bankTransferID:
+          type: string
+        transferID:
+          type: string
+      type: object
+    PurchaseHistoryFilterCriteria:
+      description: |-
+        Encapsulates the criteria for querying purchase history within a specified date range.
+         Supports pagination via `nextPageId` for faster loading, and optional page/size parameters.
+         <p>
+         Example Usage:
+         from: `2024-10-15T13:00:00Z`
+         to:   `2024-10-15T14:00:00Z`
+      properties:
+        from:
+          description: The start of the date range (inclusive) for querying purchase
+            history.
+          example: 2024-10-15T13:00:00Z
+          format: date-time
+          type: string
+        to:
+          description: The end of the date range (exclusive) for querying purchase
+            history.
+          example: 2024-10-15T14:00:00Z
+          format: date-time
+          type: string
+        purchaseId:
+          description: |-
+            Represents the unique identifier for a purchase.
+             This field is used to filter purchase history records
+             based on a specific purchase.
+          format: int64
+          type: integer
+        statuses:
+          description: |-
+            A list representing the statuses of a purchase history.
+             Each state corresponds to a different status of the purchase,
+             such as manually successful, reversed, or unknown.
+          items:
+            enum:
+            - MANUALLY_SUCCESS
+            - REVERSED
+            - UNKNOWN
+            type: string
+          type: array
+          uniqueItems: true
+        nextPageId:
+          description: |-
+            The identifier for fetching the next page of results.
+             Using `nextPageId` allows faster pagination than a page number parameter.
+             If provided, the `page` parameter will be ignored.
+          format: int64
+          type: integer
+        page:
+          description: |-
+            The page number to fetch (1-indexed). If null, it means the first page.
+             Note: The max page number is 10. Use `nextPageId` for faster results.
+             If `nextPageId` is provided, this field is ignored.
+          format: int32
+          type: integer
+        size:
+          description: |-
+            The number of results per page. If null, the default size will be used.
+             The default page size is 10,000, and the maximum allowed size is 20,000.
+          example: 1500
+          format: int32
+          type: integer
+      type: object
+    DetailedPurchaseHistoryDto:
+      description: Encapsulates a detailed view of a purchase history.
+      example:
+        createdAt: 2000-01-23T04:56:07.000+00:00
+        clientRefNum: clientRefNum
+        purchaseId: 1
+        newState: MANUALLY_SUCCESS
+      properties:
+        purchaseId:
+          description: Represents the purchase identifier.
+          format: int64
+          type: integer
+        clientRefNum:
+          description: |-
+            Represents the client reference number.
+             A string value from client side to trace purchase in our system. This value is unique between client purchases.
+          type: string
+        newState:
+          description: |-
+            Represents the simplified version of purchase new state.
+             <p>
+             The following states indicate the purchase had a contradiction and now is resolved.
+             <p>
+             * `MANUALLY_SUCCESS`: The purchase has been successful manually.
+             * `REVERSED`: The purchase has been reversed manually.
+             **Note: ** `REVERSED` does not indicate a contradiction if the client reverts a purchase.
+          enum:
+          - MANUALLY_SUCCESS
+          - SUCCESS
+          - REVERSED
+          - FAILED
+          - UNKNOWN
+          - EXPIRED
+          - IN_PROGRESS
+          - READY_TO_VERIFY
+          type: string
+        createdAt:
+          description: |-
+            Represents the creation time of this purchase history, which indicates when purchase status got changed.
+             Example: 2024-10-20T13:25:30.946Z
+          format: date-time
+          type: string
+      type: object
+    IdPaginatedDetailedPurchaseHistoryDto:
+      description: |-
+        A Data Transfer Object (DTO) representing a paginated collection of elements, filtered by a next page identifier (`nextPageId`).
+         This DTO allows efficient pagination using entity identifiers, optimizing for faster response times.
+      example:
+        size: 0
+        nextPageId: nextPageId
+        elements:
+        - createdAt: 2000-01-23T04:56:07.000+00:00
+          clientRefNum: clientRefNum
+          purchaseId: 1
+          newState: MANUALLY_SUCCESS
+        - createdAt: 2000-01-23T04:56:07.000+00:00
+          clientRefNum: clientRefNum
+          purchaseId: 1
+          newState: MANUALLY_SUCCESS
+        hasNext: true
+        totalCount: 6
+      properties:
+        size:
+          description: The number of elements in the current page.
+          format: int32
+          type: integer
+        totalCount:
+          description: "The total number of elements. If null, the total count was\
+            \ not calculated for faster response times."
+          format: int64
+          type: integer
+        hasNext:
+          description: Indicates if there is another page following the current one.
+          type: boolean
+        nextPageId:
+          description: |-
+            The identifier for fetching the next page of results.
+             This provides more efficient pagination compared to using a traditional page number.
+             Note: This can be null if there are no more results or if the result set is empty.
+          type: string
+        elements:
+          description: The list of elements in the current page.
+          items:
+            $ref: "#/components/schemas/DetailedPurchaseHistoryDto"
+          type: array
+      type: object
+    Balance:
+      description: Encapsulates the details of a balance.
+      example:
+        amount: 0
+        balanceType: balanceType
+        currency: IRR
+      properties:
+        balanceType:
+          description: |-
+            Represents the balance type. Its possible values are:
+             <p>
+             `WLT`: Indicates the default (not settleable) wallet of the client. It is the default balance type.
+             `STL`: Indicates the settleable wallet of client.
+             `FEE`: Indicates the post-paid fee that client needs to pay as the service subscription fee.
+             `SHW`: Indicates the pre-paid fee (Shaparak Wage) that we would subtract from settlement amount as the service subscription fee.
+             `BLK`: Indicates the blocked balance from the client `STL` balance type.
+          type: string
+        amount:
+          description: Represents the amount of current balance type.
+          format: int64
+          type: integer
+        currency:
+          description: Represents the currency of current balance type.
+          enum:
+          - IRR
+          type: string
+      type: object
+    ClientBalances:
+      description: Encapsulates the details of ledger inquiry response.
+      example:
+        balances:
+        - amount: 0
+          balanceType: balanceType
+          currency: IRR
+        - amount: 0
+          balanceType: balanceType
+          currency: IRR
+      properties:
+        balances:
+          description: Represents the list of ledger account balances which may contain
+            the default wallet and pre-paid/post-paid fees and settleable wallet.
+          items:
+            $ref: "#/components/schemas/Balance"
+          type: array
+      type: object
+    HealthDto:
+      description: Represents the health status of the service.
+      example:
+        pspStatusMap:
+          key: UP
+        status: UP
+      properties:
+        status:
+          description: |-
+            The current health status of the service.
+                                 UP if the service is operational, or DOWN if it is not.
+          enum:
+          - UP
+          - DOWN
+          - NOT_IMPLEMENTED
+          type: string
+        pspStatusMap:
+          additionalProperties:
+            enum:
+            - UP
+            - DOWN
+            - NOT_IMPLEMENTED
+            type: string
+          description: A map containing the health status of various PSP vendors.
+          type: object
+      type: object
+  securitySchemes:
+    bearerAuth:
+      bearerFormat: JWT
+      scheme: bearer
+      type: http
