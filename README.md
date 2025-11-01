@@ -1,4 +1,4 @@
-# Go API client for jibit-ppg
+# Go API client for ppg
 
 PPG is the Proxy Payment Gateway of Jibit corporation.
 It lets the users of 3rd-party clients (merchants, banks, organizations, ...) to purchase goodies from them using PPG as a transparent payment gateway.
@@ -32,7 +32,7 @@ go get golang.org/x/net/context
 Put the package under your project folder and add the following in import:
 
 ```go
-import jibit-ppg "github.com/mostafnamazy/jibit-ppg"
+import ppg "github.com/mostafnamazy/jibit-ppg"
 ```
 
 To use a proxy, set the environment variable `HTTP_PROXY`:
@@ -47,18 +47,18 @@ Default configuration comes with `Servers` field that contains server objects as
 
 ### Select Server Configuration
 
-For using other server than the one defined on index 0 set context value `jibit-ppg.ContextServerIndex` of type `int`.
+For using other server than the one defined on index 0 set context value `ppg.ContextServerIndex` of type `int`.
 
 ```go
-ctx := context.WithValue(context.Background(), jibit-ppg.ContextServerIndex, 1)
+ctx := context.WithValue(context.Background(), ppg.ContextServerIndex, 1)
 ```
 
 ### Templated Server URL
 
-Templated server URL is formatted using default variables from configuration or from context value `jibit-ppg.ContextServerVariables` of type `map[string]string`.
+Templated server URL is formatted using default variables from configuration or from context value `ppg.ContextServerVariables` of type `map[string]string`.
 
 ```go
-ctx := context.WithValue(context.Background(), jibit-ppg.ContextServerVariables, map[string]string{
+ctx := context.WithValue(context.Background(), ppg.ContextServerVariables, map[string]string{
 	"basePath": "v2",
 })
 ```
@@ -69,13 +69,13 @@ Note, enum values are always validated and all unused variables are silently ign
 
 Each operation can use different server URL defined using `OperationServers` map in the `Configuration`.
 An operation is uniquely identified by `"{classname}Service.{nickname}"` string.
-Similar rules for overriding default operation server index and variables applies by using `jibit-ppg.ContextOperationServerIndices` and `jibit-ppg.ContextOperationServerVariables` context maps.
+Similar rules for overriding default operation server index and variables applies by using `ppg.ContextOperationServerIndices` and `ppg.ContextOperationServerVariables` context maps.
 
 ```go
-ctx := context.WithValue(context.Background(), jibit-ppg.ContextOperationServerIndices, map[string]int{
+ctx := context.WithValue(context.Background(), ppg.ContextOperationServerIndices, map[string]int{
 	"{classname}Service.{nickname}": 2,
 })
-ctx = context.WithValue(context.Background(), jibit-ppg.ContextOperationServerVariables, map[string]map[string]string{
+ctx = context.WithValue(context.Background(), ppg.ContextOperationServerVariables, map[string]map[string]string{
 	"{classname}Service.{nickname}": {
 		"port": "8443",
 	},
@@ -151,7 +151,7 @@ Authentication schemes defined for the API:
 Example
 
 ```go
-auth := context.WithValue(context.Background(), jibit-ppg.ContextAccessToken, "BEARER_TOKEN_STRING")
+auth := context.WithValue(context.Background(), ppg.ContextAccessToken, "BEARER_TOKEN_STRING")
 r, err := client.Service.Operation(auth, args)
 ```
 
